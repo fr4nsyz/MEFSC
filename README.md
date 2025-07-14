@@ -1,5 +1,6 @@
 # Multithreaded Encrypted File Server & Client
-<img width="360" height="500" alt="image" src="https://github.com/user-attachments/assets/e18c69e3-5904-4317-960a-9128f9dcba82" />
+<img width="1291" height="965" alt="image" src="https://github.com/user-attachments/assets/9b9c54f4-5633-4f68-91bc-a4b13e0eaa0d" />
+
 
 ## what is this?
 
