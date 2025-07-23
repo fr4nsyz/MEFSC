@@ -1,14 +1,14 @@
 # Multithreaded Encrypted File Server & Client
 <img width="1291" height="965" alt="image" src="https://github.com/user-attachments/assets/9b9c54f4-5633-4f68-91bc-a4b13e0eaa0d" />
 
-
-MEFSC is a C++-based encrypted file server/client system that allows multiple users to securely store and retrieve files over a local or remote network. It's meant to act as your own private cloud, hosted on hardware you own — and ideally accessed via [Tailscale](https://tailscale.com/), because exposing your home network to the open internet is... no thanks 😅
-
 ---
 
 ## 📦 What Is This?
 
-This is a personal project to build a secure, lightweight cloud storage solution. It supports:
+### Features:
+
+MEFSC is a C++-based encrypted file server/client system that allows multiple users to securely store and retrieve files over a local or remote network. It's meant to act as your own private cloud, hosted on hardware you own — and ideally accessed via [Tailscale](https://tailscale.com/), because exposing your home network to the open internet is... no thanks 😅
+
 
 - Secure file upload/download via symmetric encryption
 - User authentication via SQLite3
