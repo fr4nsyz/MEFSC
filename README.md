@@ -48,22 +48,25 @@ Encrypted files are stored on the server under per-user directories, and decrypt
 ## 🛠 Dependencies
 
 ### Ubuntu / Ubuntu-based:
-```bash
+```
 sudo apt install sqlite3 libsqlite3-dev libsodium-dev cmake build-essential
+```
 
+
+```
 ### Fedora (my machine)
 sudo dnf install sqlite-devel libsodium-devel make cmake
-
+```
 
 ## 🏗 Building
-
-```c
+```
 cd build
 cmake ..
 make
 ```
 
-`build/server` is the server binary, and `build/client_fs/client` is the client binary.
+`build/server` is the server binary.
+`build/client_fs/client` is the client binary.
 
 Execute them and follow the prompts :) it's that straight forward.
 
