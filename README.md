@@ -53,8 +53,9 @@ sudo apt install sqlite3 libsqlite3-dev libsodium-dev cmake build-essential
 ```
 
 
-```
+
 ### Fedora (my machine)
+```
 sudo dnf install sqlite-devel libsodium-devel make cmake
 ```
 
