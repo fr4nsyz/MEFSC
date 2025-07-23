@@ -2,59 +2,71 @@
 <img width="1291" height="965" alt="image" src="https://github.com/user-attachments/assets/9b9c54f4-5633-4f68-91bc-a4b13e0eaa0d" />
 
 
-## what is this?
+MEFSC is a C++-based encrypted file server/client system that allows multiple users to securely store and retrieve files over a local or remote network. It's meant to act as your own private cloud, hosted on hardware you own — and ideally accessed via [Tailscale](https://tailscale.com/), because exposing your home network to the open internet is... no thanks 😅
 
-I want to make my own cloud storage essentially via an encrypted file server on some piece of hardware that i hook up with tailscale. (I'd rather not expose my home network to the internet thank you very much xd)
+---
 
-## how it works
+## 📦 What Is This?
 
-Authentication is done via an sqlite3 database on the server side. Once authenticated, the user can do two actions. First is to encrypt and write a file to the server's file system, second is to decrypt and read a file from the server's file system. Encrypted files will be written to `MEF_S/<username>` directory on the server. The decrypted files will be written to the current working directory ./client program was executed in.
+This is a personal project to build a secure, lightweight cloud storage solution. It supports:
 
-I used the libsodium for the cryptography and the standard library for the rest.
+- Secure file upload/download via symmetric encryption
+- User authentication via SQLite3
+- File chunking and encryption with [libsodium](https://libsodium.gitbook.io/doc/)
+- Multi-user access
+- Tailscale compatibility for remote, secure connectivity
 
-The underlying network protocol is TCP mainly to ensure packets arrive in order, encrypted chunks arriving in sequence is obviously important haha.
+Encrypted files are stored on the server under per-user directories, and decrypted files are downloaded locally to the client’s working directory.
 
-As you can guess from the directory naming, this server client model supports multiple clients reading and writing to the file system.
+---
 
+## 🔐 How It Works
 
-## dependencies:
+### 🔑 Authentication
+- Users authenticate with credentials stored in a local SQLite3 database on the server.
+- After successful login, the client can:
+  1. Encrypt and upload a file to the server
+  2. Download and decrypt a file from the server
 
-Ubuntu/Ubuntu based (sorry if these pkgs are not on debian, i don't have a debian system TwT):
-```
+### 💾 Storage
+- Server stores files encrypted at rest in:
+```MEF_S/<username>/```
+
+- Client writes decrypted files to its current working directory.
+
+### 🌐 Networking
+- Uses **TCP** sockets for reliable, in-order chunk transmission — because encrypted chunk shuffling would be... bad.
+- Everything is encrypted client-side before transmission, and decrypted after download.
+
+### 🔒 Cryptography
+- Uses **libsodium** for encryption.
+- Symmetric encryption is applied per session (or per user — implementation dependent).
+- Files are encrypted/decrypted in chunks for better scalability and memory efficiency.
+
+---
+
+## 🛠 Dependencies
+
+### Ubuntu / Ubuntu-based:
+```bash
 sudo apt install sqlite3 libsqlite3-dev libsodium-dev cmake build-essential
-```
 
-Fedora (what i'm using rn):
-```
-sudo dnf install sqlite-devel libsodium-devel libsodium-devel make cmake
-```
+### Fedora (my machine)
+sudo dnf install sqlite-devel libsodium-devel make cmake
 
-## building
 
-```cd build
+## 🏗 Building
+
+```c
+cd build
 cmake ..
 make
 ```
-## usage
 
-terminal 1
-```./server```
+`build/server` is the server binary, and `build/client_fs/client` is the client binary.
 
-terminal 2
-```./client```
+Execute them and follow the prompts :) it's that straight forward.
 
-testing credentials:
-
-username: `henry`
-password: `swabber`
-
-
-username: `bungie`
-password: `gourd`
-
-Don't ask why I picked the names, for some reason I was thinking of superman then shortly after, cotton swabs. As for the other name, I don't even know xd
-
-Follow the prompts given on client side and quit server by pressing `q` and `enter` when done :)
 
 ## demo
 [![Single Client](https://img.youtube.com/vi/6Q8EOyWfPSA/0.jpg)](https://www.youtube.com/watch?v=6Q8EOyWfPSA)
