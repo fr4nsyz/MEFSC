@@ -30,7 +30,7 @@ Encrypted files are stored on the server under per-user directories, and decrypt
 
 ### 💾 Storage
 - Server stores files encrypted at rest in:
-```MEF_S/<username>/```
+```build/MEF_S/<username>/```
 
 - Client writes decrypted files to its current working directory.
 
