@@ -6,7 +6,7 @@
 ## 📦 What Is This?
 
 
-MEFSC is a C++-based encrypted file server/client system that allows multiple users to securely store and retrieve files over a local or remote network. It's meant to act as your own private cloud, hosted on hardware you own — and ideally accessed via [Tailscale](https://tailscale.com/), because exposing your home network to the open internet is... no thanks 😅
+MEFSC is a C++ based encrypted file server/client system that allows multiple users to securely store and retrieve files over a local or remote network. It's meant to act as your own private cloud, hosted on hardware you own — and ideally accessed via [Tailscale](https://tailscale.com/), because exposing your home network to the open internet is... no thanks 😅
 
 ### Features:
 
