@@ -6,7 +6,7 @@
 ## 📦 What Is This?
 
 
-MEFSC is a C++ based encrypted file server/client system that allows multiple users to securely store and retrieve files over a local or remote network. It's meant to act as your own private cloud, hosted on hardware you own — and ideally accessed via [Tailscale](https://tailscale.com/), because exposing your home network to the open internet is... no thanks 😅
+MEFSC is a C++ based encrypted file server/client system that allows multiple users to securely store and retrieve files over a local or remote network. It's meant to act as your own private cloud, hosted on hardware you own and ideally accessed via [Tailscale](https://tailscale.com/) or other VPN, because exposing your home network to the open internet is... no thanks 😅
 
 ### Features:
 
@@ -35,12 +35,12 @@ Encrypted files are stored on the server under per-user directories, and decrypt
 - Client writes decrypted files to its current working directory.
 
 ### 🌐 Networking
-- Uses **TCP** sockets for reliable, in-order chunk transmission — because encrypted chunk shuffling would be... bad.
+- Uses **TCP** sockets for reliable, in-order chunk transmission because encrypted chunk shuffling would make decryption impossible.
 - Everything is encrypted client-side before transmission, and decrypted after download.
 
 ### 🔒 Cryptography
 - Uses **libsodium** for encryption.
-- Symmetric encryption is applied per session (or per user — implementation dependent).
+- Symmetric encryption is applied per session.
 - Files are encrypted/decrypted in chunks for better scalability and memory efficiency.
 
 ---
