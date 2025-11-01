@@ -2,7 +2,6 @@
 #include <cstring>
 #include <iostream>
 #include <iterator>
-#include <openssl/evp.h>
 #include <ostream>
 #include <sodium.h>
 #include <sodium/crypto_pwhash.h>
