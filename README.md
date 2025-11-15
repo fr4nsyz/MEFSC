@@ -6,7 +6,9 @@
 MEFSC is a C++ based encrypted file server/client system that allows multiple users to securely store and retrieve files over a local or remote network. It's meant to act as your own private cloud, hosted on hardware you own and ideally accessed via [Tailscale](https://tailscale.com/) or other VPN.
 
 ## Demo
-[![Single Client Demo](https://img.youtube.com/vi/XiMNaGl9eWk/0.jpg)](https://youtu.be/XiMNaGl9eWk)
+
+[![Single Client Demonstration](https://img.youtube.com/vi/PG-KranoF8w/0.jpg)](https://youtu.be/PG-KranoF8w)
+
 
 
 ## Features List:
