@@ -345,3 +345,11 @@ int FS_Operator::read_intent() {
 
   return intent;
 }
+
+void FS_Operator::rotate_keys() {
+    // read from this->client_sock, the client's public key
+    // run server_crypt_gen() to derive shared secrets for encryption/decryption
+    // replace server_tx and server_rx in this object
+
+    SessionEncWrapper SessionEncWrapper(this->client_sock);
+}

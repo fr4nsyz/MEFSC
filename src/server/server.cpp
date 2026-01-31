@@ -189,6 +189,10 @@ void handle_conn(sqlite3 *DB, int client_sock) {
 
   do {
 
+    // read signal for key rotation, if not, skip, if is run rotate_keys
+    // rotate_keys may happen here so every action (file write or read) uses
+    // different session enc keys
+
     std::cerr << "asking for notice of new action\n";
     if (OP.receive_notice_of_new_action()) {
       std::cerr << "did not receive a notice of new action\n";

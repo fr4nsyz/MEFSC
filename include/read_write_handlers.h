@@ -27,6 +27,8 @@ public:
 
   int RFFS_Handler__Server(); // Read From File System Handler
 
+  void rotate_keys();
+
   FS_Operator(int client_sock, std::string username,
               unsigned char server_rx[crypto_kx_SESSIONKEYBYTES],
               unsigned char server_tx[crypto_kx_SESSIONKEYBYTES]);
