@@ -10,7 +10,7 @@ void print_conns(std::unordered_map<int, Client_Info> &map) {
 
 void logger(std::atomic<bool> &server_alive,
             std::unordered_map<int, Client_Info> &clients,
-            size_t &live_connections, size_t &total_connections) {
+            std::atomic<size_t> &live_connections, std::atomic<size_t> &total_connections) {
   while (server_alive) {
 
     std::cerr << "--------------------------------\n";

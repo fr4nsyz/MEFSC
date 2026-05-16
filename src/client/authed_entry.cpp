@@ -43,22 +43,16 @@ int Comms_Agent::notify_server_of_action(
       SessionEncWrapper(reinterpret_cast<const unsigned char *>(&action),
                         sizeof(action), this->get_client_tx(), original_nonce);
 
-  notif.send_data_length(this->client_sock);
-  notif.send_nonce(this->client_sock);
-  notif.send_data(this->client_sock);
+  notif.send_all(this->client_sock);
 
   return 0;
 }
 
 int Sender_Agent::send_buffer() {
-  // just sends the buffer
   SessionEncWrapper buf_wrap = SessionEncWrapper(
       this->buffer, this->size, this->CA->get_client_tx(), this->nonce);
   int client_sock = this->CA->get_socket();
-  buf_wrap.send_data_length(client_sock); // swapping these
-  buf_wrap.send_nonce(
-      client_sock); // around because i need to return if data lenght is 0
-  buf_wrap.send_data(client_sock);
+  buf_wrap.send_all(client_sock);
 
   return 0;
 }
@@ -77,9 +71,7 @@ int Sender_Agent::init_send(
   SessionEncWrapper file_status_confirm_wrapper =
       SessionEncWrapper(reinterpret_cast<unsigned char *>(&file_exist),
                         sizeof(file_exist), client_tx, this->nonce);
-  file_status_confirm_wrapper.send_data_length(client_sock);
-  file_status_confirm_wrapper.send_nonce(client_sock);
-  file_status_confirm_wrapper.send_data(client_sock);
+  file_status_confirm_wrapper.send_all(client_sock);
 
   if (!file_exist) {
     std::cerr << "file does not exist exiting init_send\n";
@@ -88,22 +80,16 @@ int Sender_Agent::init_send(
 
   SessionEncWrapper file_name_wrap =
       SessionEncWrapper(file_name, file_name_length, client_tx, this->nonce);
-  file_name_wrap.send_data_length(client_sock);
-  file_name_wrap.send_nonce(client_sock);
-  file_name_wrap.send_data(client_sock);
+  file_name_wrap.send_all(client_sock);
 
   SessionEncWrapper header_wrap = SessionEncWrapper(
       header, crypto_secretstream_xchacha20poly1305_HEADERBYTES, client_tx,
       this->nonce);
-  header_wrap.send_data_length(client_sock);
-  header_wrap.send_nonce(client_sock);
-  header_wrap.send_data(client_sock);
+  header_wrap.send_all(client_sock);
 
   SessionEncWrapper salt_wrap =
       SessionEncWrapper(salt, crypto_pwhash_SALTBYTES, client_tx, this->nonce);
-  salt_wrap.send_data_length(client_sock);
-  salt_wrap.send_nonce(client_sock);
-  salt_wrap.send_data(client_sock);
+  salt_wrap.send_all(client_sock);
 
   return 0;
 }
@@ -176,9 +162,7 @@ int Sender_Agent::encrypt_and_send_to_server(std::string &file_name,
                   reinterpret_cast<const unsigned char *>(&MEAT_CHUNK),
                   sizeof(MEAT_CHUNK), this->CA->get_client_tx(), this->nonce);
 
-    prefix.send_data_length(this->CA->get_socket());
-    prefix.send_nonce(this->CA->get_socket());
-    prefix.send_data(this->CA->get_socket());
+    prefix.send_all(this->CA->get_socket());
 
     int send_stat = this->send_buffer();
 

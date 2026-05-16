@@ -23,4 +23,7 @@ const unsigned char PRE_EXT_FILE_NAME_LEN =
     250; // remove 5 from 255 because that is reserved for the .enc extension
          // (null byte included)
 
+const int LIST_FILES = 3;
+const int DELETE_FILE = 4;
+
 #endif

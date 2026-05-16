@@ -13,10 +13,9 @@ inline const char *kuku = "\e[0;35m";
 inline const char *norm = "\033[0m";
 
 struct Client_Info {
-  bool zombie = false;
-  std::thread client_thread;
+  bool active = true;
 };
 
 void logger(std::atomic<bool> &server_alive,
             std::unordered_map<int, Client_Info> &clients,
-            size_t &live_connections, size_t &total_connections);
+            std::atomic<size_t> &live_connections, std::atomic<size_t> &total_connections);

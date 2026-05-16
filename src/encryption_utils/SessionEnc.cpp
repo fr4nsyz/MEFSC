@@ -146,14 +146,14 @@ int SessionEncWrapper::send_data(int client_sock) {
     return -1;
   }
   return send(client_sock, this->session_encrypted_data,
-              this->session_encrypted_data_length, 0);
+              this->session_encrypted_data_length, MSG_NOSIGNAL);
 }
 int SessionEncWrapper::send_nonce(int client_sock) {
   if (this->enc_wrap_type != SENDER) {
     return -1;
   }
   return send(client_sock, this->nonce, crypto_aead_chacha20poly1305_NPUBBYTES,
-              0);
+              MSG_NOSIGNAL);
 }
 
 int SessionEncWrapper::send_data_length(int client_sock) {
@@ -161,12 +161,35 @@ int SessionEncWrapper::send_data_length(int client_sock) {
     return -1;
   }
   return send(client_sock, &this->session_encrypted_data_length,
-              sizeof(this->session_encrypted_data_length), 0);
+              sizeof(this->session_encrypted_data_length), MSG_NOSIGNAL);
 }
 
 unsigned long long SessionEncWrapper::get_data_length() {
   // this one is universal to both SENDER and READER
   return this->session_encrypted_data_length;
 };
+
+int SessionEncWrapper::send_all(int client_sock) {
+  if (this->enc_wrap_type != SENDER) {
+    return -1;
+  }
+  unsigned char buf[sizeof(unsigned long long) +
+                    crypto_aead_chacha20poly1305_NPUBBYTES + stream_chunk_size];
+  unsigned char *ptr = buf;
+
+  std::memcpy(ptr, &this->session_encrypted_data_length,
+              sizeof(this->session_encrypted_data_length));
+  ptr += sizeof(this->session_encrypted_data_length);
+
+  std::memcpy(ptr, this->nonce, crypto_aead_chacha20poly1305_NPUBBYTES);
+  ptr += crypto_aead_chacha20poly1305_NPUBBYTES;
+
+  std::memcpy(ptr, this->session_encrypted_data,
+              this->session_encrypted_data_length);
+  ptr += this->session_encrypted_data_length;
+
+  size_t total = ptr - buf;
+  return send(client_sock, buf, total, MSG_NOSIGNAL);
+}
 
 bool SessionEncWrapper::is_corrupted() { return this->corrupted; }

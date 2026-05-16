@@ -27,6 +27,10 @@ public:
 
   int RFFS_Handler__Server(); // Read From File System Handler
 
+  int LFFS_Handler__Server(); // List Files From File System Handler
+
+  int DFFS_Handler__Server(); // Delete File From File System Handler
+
   FS_Operator(int client_sock, std::string username,
               unsigned char server_rx[crypto_kx_SESSIONKEYBYTES],
               unsigned char server_tx[crypto_kx_SESSIONKEYBYTES]);

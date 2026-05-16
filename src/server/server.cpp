@@ -4,113 +4,51 @@
 #include "../../include/server_logger.h"
 #include <atomic>
 #include <chrono>
+#include <condition_variable>
 #include <cstddef>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
-#include <functional>
 #include <iostream>
 #include <mutex>
 #include <netinet/in.h>
-#include <ostream>
-#include <sodium/crypto_kx.h>
-#include <sodium/crypto_pwhash.h>
-#include <sodium/utils.h>
-#include <sqlite3.h>
-#include <sys/socket.h>
-#include <sys/types.h>
-#include <thread>
-#include <unistd.h>
-#include <unordered_map>
-#include <vector>
+#include <queue>
+#include <signal.h>
 
 const int ACK_SUC = 0;
 const int ACK_FAIL = -1;
-const int MAX_ZOMBIE_CONNS = 2;
-
-enum CONN_TYPE { LIVE, ZOMBIE };
 
 const int CONFUSION = -420;
 const int READ_FROM_FILESYSTEM = 1;
 const int WRITE_TO_FILESYSTEM = 2;
 
-size_t total_connections = 0;
-size_t live_connections = 0;
-size_t zombies_counter = 0;
-
+std::atomic<size_t> total_connections{0};
+std::atomic<size_t> live_connections{0};
 std::unordered_map<int, Client_Info> clients;
 std::mutex clients_mutex;
 
-void zombify(int client_sock) {
-  std::cout << "zombify called" << std::endl;
-  // i dont think i need ot check if it exists because if cleanup was called,
-  // the handle_conn func has a live thread and therefore Client_Info associated
-  // with it
-  std::lock_guard<std::mutex> client_lock(clients_mutex);
-  clients.find(client_sock)->second.zombie = true;
-  ++zombies_counter;
-  --live_connections;
-  std::cerr << "end of zombify" << std::endl;
-  std::cerr << "end of zombify" << std::endl;
-  std::cerr << "end of zombify" << std::endl;
-  std::cerr << "end of zombify" << std::endl;
+const int POOL_SIZE = 8;
+std::queue<int> client_queue;
+std::mutex queue_mutex;
+std::condition_variable queue_cv;
+
+std::atomic<bool> server_alive{true};
+int server_sock_fd = -1;
+
+void handle_signal(int) {
+  server_alive = false;
+  queue_cv.notify_all();
+  if (server_sock_fd >= 0) shutdown(server_sock_fd, SHUT_RDWR);
 }
 
-void cleanup_intermittent(std::atomic<bool> &server_alive) {
-  // this will just clean up the zombie clients in std::unordered_map<int,
-  while (server_alive) {
-    if (zombies_counter < MAX_ZOMBIE_CONNS) {
-      std::this_thread::sleep_for(std::chrono::milliseconds(500));
-      continue;
-    }
-    std::lock_guard<std::mutex> locker(clients_mutex);
-    std::cerr << "cleanup inter" << std::endl;
-
-    std::vector<int> to_erase;
-    for (auto &[fd, inf] : clients) {
-      std::cerr << "cleanup fd: " << fd << std::endl;
-      if (inf.zombie && inf.client_thread.joinable()) {
-        inf.client_thread.join();
-        close(fd);
-        to_erase.push_back(fd);
-        --zombies_counter;
-      }
-    }
-
-    for (int i : to_erase) {
-      clients.erase(i);
-    }
-  }
-
-  std::cerr << "NOT ALIV cleanup inter" << std::endl;
-  std::cerr << "NOT ALIV cleanup inter" << std::endl;
-  std::cerr << "NOT ALIV cleanup inter" << std::endl;
-  std::cerr << "NOT ALIV cleanup inter" << std::endl;
-
-  std::vector<int> to_erase;
-  for (auto &[fd, inf] : clients) {
-    if (inf.client_thread.joinable()) {
-      std::cerr << "cleanup fd: " << fd << std::endl;
-      inf.client_thread.join();
-      close(fd);
-      to_erase.push_back(fd);
-      --zombies_counter;
-    }
-  }
-
-  for (int i : to_erase) {
-    std::cerr << "erasing now" << std::endl;
-    clients.erase(i);
-  }
-}
+void worker(sqlite3 *DB, std::atomic<bool> &server_alive);
 
 void clean_all(std::thread &log_thread, std::thread &kill_server_listener,
-               std::thread &clean_intermittent_thread) {
+               std::vector<std::thread> &pool) {
   std::cerr << "starting clean_all\n";
 
-  if (clean_intermittent_thread.joinable()) {
-    clean_intermittent_thread.join();
-    std::cerr << "completed clean_intermittent_thread\n";
+  for (auto &t : pool) {
+    if (t.joinable()) t.join();
   }
 
   if (log_thread.joinable()) {
@@ -175,11 +113,11 @@ void handle_conn(sqlite3 *DB, int client_sock) {
 
   if (verify_credentials(DB, username, client_sock, server_rx)) {
     std::cerr << "couldn't verify creds, ignoring";
-    send(client_sock, &ACK_FAIL, sizeof(int), 0);
-    zombify(client_sock);
+    send(client_sock, &ACK_FAIL, sizeof(int), MSG_NOSIGNAL);
+    --live_connections;
     return;
   } else {
-    send(client_sock, &ACK_SUC, sizeof(int), 0); // successful login
+    send(client_sock, &ACK_SUC, sizeof(int), MSG_NOSIGNAL); // successful login
   }
 
   FS_Operator OP = FS_Operator(client_sock, username, server_rx,
@@ -210,46 +148,70 @@ void handle_conn(sqlite3 *DB, int client_sock) {
     } else if (intent == WRITE_TO_FILESYSTEM) {
       OP.WTFS_Handler__Server();
       std::cerr << "after WTFS_Handler\n";
+    } else if (intent == LIST_FILES) {
+      OP.LFFS_Handler__Server();
+      std::cerr << "after LFFS_Handler\n";
+    } else if (intent == DELETE_FILE) {
+      OP.DFFS_Handler__Server();
+      std::cerr << "after DFFS_Handler\n";
     } else {
       std::cerr << "invalid intention\n";
     }
   } while (perform_next);
 
-  // end the loop here cuz zombify is after client ends communications
-
-  zombify(client_sock);
+  {
+    std::lock_guard<std::mutex> lock(clients_mutex);
+    clients.erase(client_sock);
+  }
+  close(client_sock);
+  --live_connections;
 }
 
-void kill_server(std::atomic<bool> &server_alive, int server_sock) {
+void kill_server(std::atomic<bool> &server_alive, int server_sock_fd) {
   std::cout << red << "kill the server by typing (q)\n" << norm;
   char switch_char;
-  std::cin >> switch_char;
-  if (switch_char == 'q') {
+  if (std::cin >> switch_char && switch_char == 'q') {
     server_alive = false;
+    shutdown(server_sock_fd, SHUT_RDWR);
   }
-  std::cout << "server kill switch activated, server_alive is now "
-            << server_alive << "\n";
-  shutdown(server_sock, SHUT_RDWR);
+}
+
+void worker(sqlite3 *DB, std::atomic<bool> &server_alive) {
+  while (server_alive) {
+    int client_sock;
+    {
+      std::unique_lock<std::mutex> lock(queue_mutex);
+      queue_cv.wait(lock, [&] {
+        return !client_queue.empty() || !server_alive;
+      });
+      if (!server_alive) return;
+      client_sock = client_queue.front();
+      client_queue.pop();
+    }
+    handle_conn(DB, client_sock);
+  }
 }
 
 int main() {
 
-  std::atomic<bool> server_alive = true;
   sqlite3 *DB;
+
+  signal(SIGTERM, handle_signal);
+  signal(SIGINT, handle_signal);
 
   if (initialize_server(&DB)) {
     std::cerr << "couldn't open db" << std::endl;
     return 1;
   }
 
-  int server_sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+  server_sock_fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 
-  if (server_sock == -1) {
+  if (server_sock_fd == -1) {
     std::cout << "Failed to create socket descriptor. " << strerror(errno)
               << "\n";
     return 1;
   } else {
-    std::cout << "success making server_sock\n";
+    std::cout << "success making server_sock_fd\n";
   }
   sockaddr_in server_address;
 
@@ -261,44 +223,47 @@ int main() {
   std::cout << "starting bind\n";
 
   int opt = 1;
-  if (setsockopt(server_sock, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) <
+  if (setsockopt(server_sock_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) <
       0) {
     std::cerr << "setsockopt failed: " << strerror(errno) << std::endl;
-    close(server_sock);
+    close(server_sock_fd);
     return 1;
   }
 
-  int bind_stat = bind(server_sock, (struct sockaddr *)&server_address,
+  int bind_stat = bind(server_sock_fd, (struct sockaddr *)&server_address,
                        sizeof(server_address));
 
   if (bind_stat == -1) {
     std::cout << "Failed to bind socket. " << strerror(errno) << std::endl;
-    close(server_sock);
+    close(server_sock_fd);
     return 1;
   }
 
-  if (listen(server_sock, 5) < 0) {
+  if (listen(server_sock_fd, 5) < 0) {
     std::cout << "server could not listen" << std::endl;
-    close(server_sock);
+    close(server_sock_fd);
   }
 
   std::cout << "accepting\n";
 
   std::thread kill_server_listener =
-      std::thread(kill_server, std::ref(server_alive), server_sock);
+      std::thread(kill_server, std::ref(server_alive), server_sock_fd);
 
   std::thread log_thread =
       std::thread(logger, std::ref(server_alive), std::ref(clients),
                   std::ref(live_connections), std::ref(total_connections));
-  std::thread cleanup_intermittent_thread =
-      std::thread(cleanup_intermittent, std::ref(server_alive));
+
+  std::vector<std::thread> pool;
+  for (int i = 0; i < POOL_SIZE; ++i) {
+    pool.emplace_back(worker, DB, std::ref(server_alive));
+  }
 
   while (server_alive) {
 
-    int client_sock = accept(server_sock, nullptr, nullptr);
+    int client_sock = accept(server_sock_fd, nullptr, nullptr);
 
     if (server_alive == false) {
-      close(client_sock); // need to close manually here
+      close(client_sock);
       break;
     }
 
@@ -309,9 +274,16 @@ int main() {
 
     std::cout << "loopy" << std::endl;
 
-    std::lock_guard<std::mutex> client_lock(clients_mutex);
-    clients[client_sock].client_thread =
-        std::thread(handle_conn, DB, client_sock);
+    {
+      std::lock_guard<std::mutex> client_lock(clients_mutex);
+      clients[client_sock] = Client_Info{};
+    }
+
+    {
+      std::lock_guard<std::mutex> lock(queue_mutex);
+      client_queue.push(client_sock);
+    }
+    queue_cv.notify_one();
 
     ++total_connections;
     ++live_connections;
@@ -319,8 +291,7 @@ int main() {
 
   std::cerr << "stopped accepting clients\n";
 
+  queue_cv.notify_all();
+  clean_all(log_thread, kill_server_listener, pool);
   sqlite3_close(DB);
-  clean_all(log_thread, kill_server_listener, cleanup_intermittent_thread);
-
-  // this should join the log_thread and
 }

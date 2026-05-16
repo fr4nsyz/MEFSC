@@ -1,12 +1,17 @@
+#include <cerrno>
+#include <cstdint>
 #include <iostream>
 #include <netinet/in.h>
 #include <sodium/crypto_aead_chacha20poly1305.h>
 #include <sodium/crypto_kx.h>
 #include <sodium/crypto_secretstream_xchacha20poly1305.h>
 #include <sodium/randombytes.h>
+#include <sys/socket.h>
 
 #ifndef MFSC_ENCRYPTION_UTILS
 #define MFSC_ENCRYPTION_UTILS
+
+bool recv_fully(int fd, void *buf, size_t len);
 
 int encrypt_stream_buffer(
     unsigned char tx[crypto_kx_SESSIONKEYBYTES],

@@ -66,17 +66,13 @@ int send_credentials(
       SessionEncWrapper(reinterpret_cast<unsigned char *>(username.data()),
                         username.length() + 1, client_tx, original_nonce);
 
-  username_wrapper.send_data_length(client_sock);
-  username_wrapper.send_nonce(client_sock);
-  username_wrapper.send_data(client_sock);
+  username_wrapper.send_all(client_sock);
 
   SessionEncWrapper password_wrapper =
       SessionEncWrapper(reinterpret_cast<unsigned char *>(password.data()),
                         password.length() + 1, client_tx, original_nonce);
 
-  password_wrapper.send_data_length(client_sock);
-  password_wrapper.send_nonce(client_sock);
-  password_wrapper.send_data(client_sock);
+  password_wrapper.send_all(client_sock);
 
   int auth_stat = -1;
 
@@ -101,9 +97,7 @@ int send_intention(
       SessionEncWrapper(reinterpret_cast<unsigned char *>(&intent),
                         sizeof(intent), client_tx, original_nonce);
 
-  intent_wrap.send_data_length(client_sock);
-  intent_wrap.send_nonce(client_sock);
-  intent_wrap.send_data(client_sock);
+  intent_wrap.send_all(client_sock);
 
   return 0;
 }
@@ -122,9 +116,7 @@ int RFFS_Handler(Comms_Agent *CA, Receiver_Agent &RA, int client_sock,
       reinterpret_cast<unsigned char *>(file_name.data()),
       file_name.length() + 1, CA->get_client_tx(), RA.get_nonce());
 
-  file_name_wrapper.send_data_length(client_sock);
-  file_name_wrapper.send_nonce(client_sock);
-  file_name_wrapper.send_data(client_sock);
+  file_name_wrapper.send_all(client_sock);
 
   file_name.resize(file_name.length() -
                    4); // REMOVE LAST 4 BECAUSE THIS IS .enc
@@ -151,6 +143,63 @@ int WTFS_Handler(Comms_Agent *CA, Sender_Agent &SA, int client_sock,
   return 0;
 }
 
+int LFFS_Handler(Comms_Agent *CA, int client_sock) {
+  int file_count;
+  unsigned long long decrypted_len;
+
+  SessionEncWrapper count_wrap = SessionEncWrapper(client_sock);
+  if (count_wrap.is_corrupted()) return 1;
+  if (count_wrap.unwrap(CA->get_client_rx(), sizeof(file_count),
+                        reinterpret_cast<unsigned char *>(&file_count),
+                        &decrypted_len))
+    return 1;
+
+  std::cout << "\n--- Stored Files (" << file_count << ") ---\n";
+  for (int i = 0; i < file_count; ++i) {
+    SessionEncWrapper name_wrap = SessionEncWrapper(client_sock);
+    if (name_wrap.is_corrupted()) return 1;
+
+    unsigned char filename[MAX_FILE_NAME_LENGTH] = {0};
+    if (name_wrap.unwrap(CA->get_client_rx(), MAX_FILE_NAME_LENGTH - 1, filename,
+                         &decrypted_len))
+      return 1;
+
+    std::cout << "  " << reinterpret_cast<char *>(filename) << "\n";
+  }
+  std::cout << "--------------------------\n";
+  return 0;
+}
+
+int DFFS_Handler(Comms_Agent *CA, int client_sock) {
+  std::string file_name;
+  std::cout << "enter file name to delete (ends in .enc): ";
+  std::cin >> file_name;
+
+  unsigned char nonce[crypto_aead_chacha20poly1305_NPUBBYTES];
+  randombytes_buf(nonce, crypto_aead_chacha20poly1305_NPUBBYTES);
+
+  SessionEncWrapper name_wrap = SessionEncWrapper(
+      reinterpret_cast<unsigned char *>(file_name.data()),
+      file_name.length() + 1, CA->get_client_tx(), nonce);
+  name_wrap.send_all(client_sock);
+
+  int result;
+  unsigned long long decrypted_len;
+  SessionEncWrapper result_wrap = SessionEncWrapper(client_sock);
+  if (result_wrap.is_corrupted()) return 1;
+  if (result_wrap.unwrap(CA->get_client_rx(), sizeof(result),
+                         reinterpret_cast<unsigned char *>(&result),
+                         &decrypted_len))
+    return 1;
+
+  if (result == ACK_SUC) {
+    std::cout << "deleted successfully\n";
+  } else {
+    std::cout << "failed to delete (file may not exist)\n";
+  }
+  return 0;
+}
+
 int authed_comms(
     int client_sock, unsigned char client_tx[crypto_kx_SESSIONKEYBYTES],
     unsigned char client_rx[crypto_kx_SESSIONKEYBYTES], std::string &username,
@@ -172,7 +221,7 @@ int authed_comms(
       break;
     };
 
-    std::cout << "enter your intention (1 == read || 2 == write)" << std::endl;
+    std::cout << "enter your intention (1 == read || 2 == write || 3 == list files || 4 == delete file)" << std::endl;
 
     int intention = CONFUSION;
 
@@ -200,6 +249,18 @@ int authed_comms(
       if (WTFS_Handler(&CA, SA, client_sock, password)) {
         std::cerr << "failed writing to file system\n";
       };
+    } else if (intention == LIST_FILES) {
+      send_intention(CA.get_client_tx(), client_sock, intention,
+                     original_nonce);
+      if (LFFS_Handler(&CA, client_sock)) {
+        std::cerr << "failed listing files\n";
+      }
+    } else if (intention == DELETE_FILE) {
+      send_intention(CA.get_client_tx(), client_sock, intention,
+                     original_nonce);
+      if (DFFS_Handler(&CA, client_sock)) {
+        std::cerr << "failed deleting file\n";
+      }
     } else {
       std::cerr << "invalid intention\n";
     }

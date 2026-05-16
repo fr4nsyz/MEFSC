@@ -3,14 +3,6 @@
 int login(sqlite3 *DB, char username[], unsigned long long username_len, char password[],
           unsigned long long password_len) {
 
-  char hashed_password[crypto_pwhash_STRBYTES];
-
-  if (crypto_pwhash_str(hashed_password, password, password_len,
-                        crypto_pwhash_OPSLIMIT_SENSITIVE,
-                        crypto_pwhash_MEMLIMIT_SENSITIVE) != 0) {
-    /* out of memory */
-  }
-
   sqlite3_stmt *stmt;
 
   const char *retrieve_hashed_pswd =

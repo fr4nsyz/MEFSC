@@ -9,7 +9,9 @@
 const char *ext = ".enc";
 const unsigned char ext_len = strlen(ext);
 
-const char *base_dir = "MEF_S/"; //  to be appended to later
+const char *base_dir = "MEF_S/";
+const int ACK_SUC = 0;
+const int ACK_FAIL = -1; //  to be appended to later
 
 FS_Operator::FS_Operator(int client_sock, std::string username,
                          unsigned char server_rx[crypto_kx_SESSIONKEYBYTES],
@@ -251,18 +253,14 @@ int FS_Operator::RFFS_Handler__Server() {
       header, crypto_secretstream_xchacha20poly1305_HEADERBYTES,
       this->server_tx, this->nonce);
 
-  header_wrap.send_data_length(this->client_sock);
-  header_wrap.send_nonce(this->client_sock);
-  header_wrap.send_data(this->client_sock);
+  header_wrap.send_all(this->client_sock);
 
   file.read(reinterpret_cast<char *>(salt), crypto_pwhash_SALTBYTES);
 
   SessionEncWrapper salt_wrap = SessionEncWrapper(salt, crypto_pwhash_SALTBYTES,
                                                   this->server_tx, this->nonce);
 
-  salt_wrap.send_data_length(this->client_sock);
-  salt_wrap.send_nonce(this->client_sock);
-  salt_wrap.send_data(this->client_sock);
+  salt_wrap.send_all(this->client_sock);
 
   if (!file) {
     std::cerr << "file not valid\n";
@@ -286,18 +284,68 @@ int FS_Operator::RFFS_Handler__Server() {
                          reinterpret_cast<const unsigned char *>(&MEAT_CHUNK),
                          sizeof(MEAT_CHUNK), this->server_tx, this->nonce);
 
-    prefix_wrap.send_data_length(this->client_sock);
-    prefix_wrap.send_nonce(this->client_sock);
-    prefix_wrap.send_data(this->client_sock);
+    prefix_wrap.send_all(this->client_sock);
 
     SessionEncWrapper file_chunk_wrap = SessionEncWrapper(
         file_chunk, file_chunk_len, this->server_tx, this->nonce);
 
-    file_chunk_wrap.send_data_length(this->client_sock);
-    file_chunk_wrap.send_nonce(this->client_sock);
-    file_chunk_wrap.send_data(this->client_sock);
+    file_chunk_wrap.send_all(this->client_sock);
 
   } while (!file.eof());
+
+  return 0;
+}
+
+int FS_Operator::LFFS_Handler__Server() {
+  int file_count = 0;
+  for (auto &entry : std::filesystem::directory_iterator(user_dir)) {
+    (void)entry;
+    ++file_count;
+  }
+
+  randombytes_buf(this->nonce, crypto_aead_chacha20poly1305_NPUBBYTES);
+  SessionEncWrapper count_wrap = SessionEncWrapper(
+      reinterpret_cast<const unsigned char *>(&file_count), sizeof(file_count),
+      this->server_tx, this->nonce);
+  count_wrap.send_all(this->client_sock);
+
+  for (auto &entry : std::filesystem::directory_iterator(user_dir)) {
+    std::string filename = entry.path().filename().string();
+    randombytes_buf(this->nonce, crypto_aead_chacha20poly1305_NPUBBYTES);
+    SessionEncWrapper name_wrap = SessionEncWrapper(
+        reinterpret_cast<const unsigned char *>(filename.data()),
+        filename.size() + 1, this->server_tx, this->nonce);
+    name_wrap.send_all(this->client_sock);
+  }
+
+  return 0;
+}
+
+int FS_Operator::DFFS_Handler__Server() {
+  randombytes_buf(this->nonce, crypto_aead_chacha20poly1305_NPUBBYTES);
+
+  SessionEncWrapper name_wrap = SessionEncWrapper(this->client_sock);
+  if (name_wrap.is_corrupted()) {
+    return 2;
+  }
+
+  char file_name_buf[MAX_FILE_NAME_LENGTH] = {0};
+  unsigned long long decrypted_len;
+
+  if (name_wrap.unwrap(this->server_rx, PRE_EXT_FILE_NAME_LEN,
+                       reinterpret_cast<unsigned char *>(file_name_buf),
+                       &decrypted_len)) {
+    return 1;
+  }
+
+  std::string file_path = this->user_dir + file_name_buf;
+  int result = std::filesystem::remove(file_path) ? ACK_SUC : ACK_FAIL;
+
+  randombytes_buf(this->nonce, crypto_aead_chacha20poly1305_NPUBBYTES);
+  SessionEncWrapper result_wrap = SessionEncWrapper(
+      reinterpret_cast<const unsigned char *>(&result), sizeof(result),
+      this->server_tx, this->nonce);
+  result_wrap.send_all(this->client_sock);
 
   return 0;
 }

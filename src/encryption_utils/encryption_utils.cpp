@@ -30,13 +30,13 @@ int server_crypt_gen(int client_sock, unsigned char *server_pk,
 
   std::cout << std::endl;
 
-  send(client_sock, server_pk, crypto_kx_PUBLICKEYBYTES, 0);
+  send(client_sock, server_pk, crypto_kx_PUBLICKEYBYTES, MSG_NOSIGNAL);
 
   unsigned char client_pk[crypto_kx_PUBLICKEYBYTES];
 
-  if (recv(client_sock, client_pk, crypto_kx_PUBLICKEYBYTES, 0) <= 0) {
+  if (!recv_fully(client_sock, client_pk, crypto_kx_PUBLICKEYBYTES)) {
     return 2;
-  };
+  }
 
   if (crypto_kx_server_session_keys(server_rx, server_tx, server_pk, server_sk,
                                     client_pk) != 0) {
@@ -59,12 +59,13 @@ int client_crypt_gen(int client_sock, unsigned char *client_pk,
 
   std::cout << std::endl;
 
-  send(client_sock, client_pk, crypto_kx_PUBLICKEYBYTES, 0);
+  send(client_sock, client_pk, crypto_kx_PUBLICKEYBYTES, MSG_NOSIGNAL);
 
   unsigned char server_pk[crypto_kx_PUBLICKEYBYTES];
 
-  int crypto_bytes_read =
-      recv(client_sock, server_pk, crypto_kx_PUBLICKEYBYTES, 0);
+  if (!recv_fully(client_sock, server_pk, crypto_kx_PUBLICKEYBYTES)) {
+    return 2;
+  }
 
   std::cout << std::endl;
 

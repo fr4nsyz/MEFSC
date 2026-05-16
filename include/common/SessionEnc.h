@@ -40,6 +40,7 @@ public:
   int send_data_length(int client_sock);
   int send_nonce(int client_sock);
   int send_data(int client_sock);
+  int send_all(int client_sock);
 
   bool is_corrupted();
 };
