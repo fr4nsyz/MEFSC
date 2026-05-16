@@ -1,0 +1,3 @@
+/home/fr4nsyz/vault/L_CACHES/mefsc/build/_deps/ftxui-subbuild/CMakeFiles/ftxui-populate.dir
+/home/fr4nsyz/vault/L_CACHES/mefsc/build/_deps/ftxui-subbuild/CMakeFiles/edit_cache.dir
+/home/fr4nsyz/vault/L_CACHES/mefsc/build/_deps/ftxui-subbuild/CMakeFiles/rebuild_cache.dir

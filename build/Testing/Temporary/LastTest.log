@@ -1,0 +1,240 @@
+Start testing: May 16 04:05 EDT
+----------------------------------------------------------
+1/5 Testing: test_common
+1/5 Test: test_common
+Command: "/home/fr4nsyz/vault/L_CACHES/mefsc/build/tests/test_common"
+Directory: /home/fr4nsyz/vault/L_CACHES/mefsc/build/tests
+"test_common" start time: May 16 04:05 EDT
+Output:
+----------------------------------------------------------
+Running main() from /home/fr4nsyz/vault/L_CACHES/mefsc/build/_deps/googletest-src/googletest/src/gtest_main.cc
+[==========] Running 11 tests from 3 test suites.
+[----------] Global test environment set-up.
+[----------] 5 tests from SessionEncTest
+[ RUN      ] SessionEncTest.SendAllRoundTrip
+[       OK ] SessionEncTest.SendAllRoundTrip (0 ms)
+[ RUN      ] SessionEncTest.SendAllPairsAreIndependent
+[       OK ] SessionEncTest.SendAllPairsAreIndependent (0 ms)
+[ RUN      ] SessionEncTest.ReceiverDetectsCorruptedLength
+Data length exceeds stream_chunk_size: 4130 > 4129
+[       OK ] SessionEncTest.ReceiverDetectsCorruptedLength (0 ms)
+[ RUN      ] SessionEncTest.NonceAdvancesBetweenMessages
+[       OK ] SessionEncTest.NonceAdvancesBetweenMessages (0 ms)
+[ RUN      ] SessionEncTest.UnwrapRequiresReader
+[       OK ] SessionEncTest.UnwrapRequiresReader (0 ms)
+[----------] 5 tests from SessionEncTest (2 ms total)
+
+[----------] 4 tests from EncryptionUtilsTest
+[ RUN      ] EncryptionUtilsTest.EncryptStreamBufferRoundTrip
+[       OK ] EncryptionUtilsTest.EncryptStreamBufferRoundTrip (0 ms)
+[ RUN      ] EncryptionUtilsTest.NonceAdvancesOnEncrypt
+[       OK ] EncryptionUtilsTest.NonceAdvancesOnEncrypt (0 ms)
+[ RUN      ] EncryptionUtilsTest.RecvFullyRoundTrip
+[       OK ] EncryptionUtilsTest.RecvFullyRoundTrip (0 ms)
+[ RUN      ] EncryptionUtilsTest.RecvFullyPartialDelivery
+[       OK ] EncryptionUtilsTest.RecvFullyPartialDelivery (1 ms)
+[----------] 4 tests from EncryptionUtilsTest (1 ms total)
+
+[----------] 2 tests from FSTest
+[ RUN      ] FSTest.ListFilesReturnsCorrectFilenames
+couldn't create user_dir: MEF_S/testuser/
+[       OK ] FSTest.ListFilesReturnsCorrectFilenames (1 ms)
+[ RUN      ] FSTest.ListFilesEmptyDirectory
+[       OK ] FSTest.ListFilesEmptyDirectory (1 ms)
+[----------] 2 tests from FSTest (3 ms total)
+
+[----------] Global test environment tear-down
+[==========] 11 tests from 3 test suites ran. (7 ms total)
+[  PASSED  ] 11 tests.
+<end of output>
+Test time =   0.02 sec
+----------------------------------------------------------
+Test Passed.
+"test_common" end time: May 16 04:05 EDT
+"test_common" time elapsed: 00:00:00
+----------------------------------------------------------
+
+2/5 Testing: integ_upload
+2/5 Test: integ_upload
+Command: "/home/fr4nsyz/vault/L_CACHES/mefsc/build/tests/integ_all" "--gtest_filter=*Upload*"
+Directory: /home/fr4nsyz/vault/L_CACHES/mefsc/build
+"integ_upload" start time: May 16 04:05 EDT
+Output:
+----------------------------------------------------------
+Note: Google Test filter = *Upload*
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[H=== MEFS Server Dashboard ===
+Uptime: 0s
+Total connections: 0
+Live connections: 0
+Client FDs: 
+[----------] 1 test from Integ
+[ RUN      ] Integ.UploadFile
+SUCCESSFUL SERVER KEY GENERATION
+SUCCESSFUL CLIENT KEY GENERATION
+
+made past login
+[       OK ] Integ.UploadFile (729 ms)
+[----------] 1 test from Integ (729 ms total)
+
+[----------] Global test environment tear-down
+stopped accepting clients
+starting clean_all
+completed log_thread
+completed kill_server_listener
+[==========] 1 test from 1 test suite ran. (1280 ms total)
+[  PASSED  ] 1 test.
+<end of output>
+Test time =   1.29 sec
+----------------------------------------------------------
+Test Passed.
+"integ_upload" end time: May 16 04:05 EDT
+"integ_upload" time elapsed: 00:00:01
+----------------------------------------------------------
+
+3/5 Testing: integ_list
+3/5 Test: integ_list
+Command: "/home/fr4nsyz/vault/L_CACHES/mefsc/build/tests/integ_all" "--gtest_filter=*ListFiles*"
+Directory: /home/fr4nsyz/vault/L_CACHES/mefsc/build
+"integ_list" start time: May 16 04:05 EDT
+Output:
+----------------------------------------------------------
+Note: Google Test filter = *ListFiles*
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[H=== MEFS Server Dashboard ===
+Uptime: 0s
+Total connections: 0
+Live connections: 0
+Client FDs: 
+[----------] 1 test from Integ
+[ RUN      ] Integ.ListFiles
+SUCCESSFUL SERVER KEY GENERATION
+SUCCESSFUL CLIENT KEY GENERATION
+
+made past login
+SUCCESSFUL SERVER KEY GENERATION
+SUCCESSFUL CLIENT KEY GENERATION
+
+made past login
+couldn't create user_dir: MEF_S/henry/
+[H=== MEFS Server Dashboard ===
+Uptime: 1s
+Total connections: 2
+Live connections: 1
+Client FDs: 6 
+[       OK ] Integ.ListFiles (1213 ms)
+[----------] 1 test from Integ (1213 ms total)
+
+[----------] Global test environment tear-down
+stopped accepting clients
+starting clean_all
+completed log_thread
+completed kill_server_listener
+[==========] 1 test from 1 test suite ran. (2255 ms total)
+[  PASSED  ] 1 test.
+<end of output>
+Test time =   2.26 sec
+----------------------------------------------------------
+Test Passed.
+"integ_list" end time: May 16 04:05 EDT
+"integ_list" time elapsed: 00:00:02
+----------------------------------------------------------
+
+4/5 Testing: integ_delete
+4/5 Test: integ_delete
+Command: "/home/fr4nsyz/vault/L_CACHES/mefsc/build/tests/integ_all" "--gtest_filter=*DeleteFile*"
+Directory: /home/fr4nsyz/vault/L_CACHES/mefsc/build
+"integ_delete" start time: May 16 04:05 EDT
+Output:
+----------------------------------------------------------
+Note: Google Test filter = *DeleteFile*
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[H=== MEFS Server Dashboard ===
+Uptime: 0s
+Total connections: 0
+Live connections: 0
+Client FDs: 
+[----------] 1 test from Integ
+[ RUN      ] Integ.DeleteFile
+SUCCESSFUL SERVER KEY GENERATION
+SUCCESSFUL CLIENT KEY GENERATION
+
+made past login
+SUCCESSFUL SERVER KEY GENERATION
+SUCCESSFUL CLIENT KEY GENERATION
+
+made past login
+couldn't create user_dir: MEF_S/henry/
+[H=== MEFS Server Dashboard ===
+Uptime: 1s
+Total connections: 2
+Live connections: 1
+Client FDs: 6 
+SUCCESSFUL SERVER KEY GENERATION
+SUCCESSFUL CLIENT KEY GENERATION
+
+made past login
+couldn't create user_dir: MEF_S/henry/
+[       OK ] Integ.DeleteFile (1635 ms)
+[----------] 1 test from Integ (1635 ms total)
+
+[----------] Global test environment tear-down
+stopped accepting clients
+starting clean_all
+completed log_thread
+completed kill_server_listener
+[==========] 1 test from 1 test suite ran. (2260 ms total)
+[  PASSED  ] 1 test.
+<end of output>
+Test time =   2.27 sec
+----------------------------------------------------------
+Test Passed.
+"integ_delete" end time: May 16 04:05 EDT
+"integ_delete" time elapsed: 00:00:02
+----------------------------------------------------------
+
+5/5 Testing: integ_bad_auth
+5/5 Test: integ_bad_auth
+Command: "/home/fr4nsyz/vault/L_CACHES/mefsc/build/tests/integ_all" "--gtest_filter=*BadAuth*"
+Directory: /home/fr4nsyz/vault/L_CACHES/mefsc/build
+"integ_bad_auth" start time: May 16 04:05 EDT
+Output:
+----------------------------------------------------------
+Note: Google Test filter = *BadAuth*
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[H=== MEFS Server Dashboard ===
+Uptime: 0s
+Total connections: 0
+Live connections: 0
+Client FDs: 
+[----------] 1 test from Integ
+[ RUN      ] Integ.BadAuth
+SUCCESSFUL SERVER KEY GENERATIONSUCCESSFUL CLIENT KEY GENERATION
+
+
+this is password_len13
+YOUUU SHALL NOTTTT PASSSSSSSSSSS
+returned 1 from login
+couldn't verify creds, ignoring[       OK ] Integ.BadAuth (254 ms)
+[----------] 1 test from Integ (254 ms total)
+
+[----------] Global test environment tear-down
+stopped accepting clients
+starting clean_all
+completed log_thread
+completed kill_server_listener
+[==========] 1 test from 1 test suite ran. (1239 ms total)
+[  PASSED  ] 1 test.
+<end of output>
+Test time =   1.25 sec
+----------------------------------------------------------
+Test Passed.
+"integ_bad_auth" end time: May 16 04:05 EDT
+"integ_bad_auth" time elapsed: 00:00:01
+----------------------------------------------------------
+
+End testing: May 16 04:05 EDT

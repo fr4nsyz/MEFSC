@@ -15,12 +15,6 @@
 #include <queue>
 #include <signal.h>
 
-const int ACK_SUC = 0;
-const int ACK_FAIL = -1;
-
-const int CONFUSION = -420;
-const int READ_FROM_FILESYSTEM = 1;
-const int WRITE_TO_FILESYSTEM = 2;
 
 std::atomic<size_t> total_connections{0};
 std::atomic<size_t> live_connections{0};
@@ -127,9 +121,7 @@ void handle_conn(sqlite3 *DB, int client_sock) {
 
   do {
 
-    std::cerr << "asking for notice of new action\n";
     if (OP.receive_notice_of_new_action()) {
-      std::cerr << "did not receive a notice of new action\n";
       perform_next = false;
       break;
     } else {
@@ -142,18 +134,18 @@ void handle_conn(sqlite3 *DB, int client_sock) {
       continue;
     }
 
-    if (intent == READ_FROM_FILESYSTEM) {
-      OP.RFFS_Handler__Server();
-      std::cerr << "after RFFS_Handler\n";
-    } else if (intent == WRITE_TO_FILESYSTEM) {
-      OP.WTFS_Handler__Server();
-      std::cerr << "after WTFS_Handler\n";
-    } else if (intent == LIST_FILES) {
-      OP.LFFS_Handler__Server();
-      std::cerr << "after LFFS_Handler\n";
-    } else if (intent == DELETE_FILE) {
-      OP.DFFS_Handler__Server();
-      std::cerr << "after DFFS_Handler\n";
+    if (intent == static_cast<int>(Action::READ_FROM_FILESYSTEM)) {
+      if (OP.RFFS_Handler__Server())
+        std::cerr << "RFFS_Handler failed for client " << client_sock << "\n";
+    } else if (intent == static_cast<int>(Action::WRITE_TO_FILESYSTEM)) {
+      if (OP.WTFS_Handler__Server())
+        std::cerr << "WTFS_Handler failed for client " << client_sock << "\n";
+    } else if (intent == static_cast<int>(Action::LIST_FILES)) {
+      if (OP.LFFS_Handler__Server())
+        std::cerr << "LFFS_Handler failed for client " << client_sock << "\n";
+    } else if (intent == static_cast<int>(Action::DELETE_FILE)) {
+      if (OP.DFFS_Handler__Server())
+        std::cerr << "DFFS_Handler failed for client " << client_sock << "\n";
     } else {
       std::cerr << "invalid intention\n";
     }
@@ -168,7 +160,7 @@ void handle_conn(sqlite3 *DB, int client_sock) {
 }
 
 void kill_server(std::atomic<bool> &server_alive, int server_sock_fd) {
-  std::cout << red << "kill the server by typing (q)\n" << norm;
+  std::cout << "kill the server by typing (q)\n";
   char switch_char;
   if (std::cin >> switch_char && switch_char == 'q') {
     server_alive = false;
@@ -198,6 +190,7 @@ int main() {
 
   signal(SIGTERM, handle_signal);
   signal(SIGINT, handle_signal);
+  signal(SIGPIPE, SIG_IGN);
 
   if (initialize_server(&DB)) {
     std::cerr << "couldn't open db" << std::endl;
@@ -251,7 +244,7 @@ int main() {
 
   std::thread log_thread =
       std::thread(logger, std::ref(server_alive), std::ref(clients),
-                  std::ref(live_connections), std::ref(total_connections));
+                  std::ref(clients_mutex), std::ref(live_connections), std::ref(total_connections));
 
   std::vector<std::thread> pool;
   for (int i = 0; i < POOL_SIZE; ++i) {
@@ -271,8 +264,6 @@ int main() {
       std::cerr << "Failed to accept connection" << std::endl;
       continue;
     }
-
-    std::cout << "loopy" << std::endl;
 
     {
       std::lock_guard<std::mutex> client_lock(clients_mutex);

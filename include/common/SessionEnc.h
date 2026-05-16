@@ -8,6 +8,9 @@
 #include <sodium/crypto_secretstream_xchacha20poly1305.h>
 #include <sodium/randombytes.h>
 
+#ifndef MFSC_SESSION_ENC
+#define MFSC_SESSION_ENC
+
 enum wrap_types { READER, SENDER };
 
 class SessionEncWrapper {
@@ -44,3 +47,5 @@ public:
 
   bool is_corrupted();
 };
+
+#endif

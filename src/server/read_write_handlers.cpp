@@ -10,8 +10,7 @@ const char *ext = ".enc";
 const unsigned char ext_len = strlen(ext);
 
 const char *base_dir = "MEF_S/";
-const int ACK_SUC = 0;
-const int ACK_FAIL = -1; //  to be appended to later
+
 
 FS_Operator::FS_Operator(int client_sock, std::string username,
                          unsigned char server_rx[crypto_kx_SESSIONKEYBYTES],
@@ -141,17 +140,13 @@ int FS_Operator::WTFS_Handler__Server() {
 
   file_name.append(".enc");
 
-  std::cerr << "THIS IS FILENAME " << file_name << std::endl;
-  std::cerr << "THIS IS FILENAME " << file_name << std::endl;
-  std::cerr << "THIS IS FILENAME " << file_name << std::endl;
-  std::cerr << "THIS IS FILENAME " << file_name << std::endl;
-  std::cerr << "THIS IS FILENAME " << file_name << std::endl;
-  std::cerr << "THIS IS FILENAME " << file_name << std::endl;
-  std::cerr << "THIS IS FILENAME " << file_name << std::endl;
 
-  std::cerr << "this is file_name now after adding ext: " << file_name << "\n";
 
   std::ofstream file(file_name, std::ios::binary);
+  if (!file.is_open()) {
+    std::cerr << "failed to open file for writing: " << file_name << "\n";
+    return 1;
+  }
 
   file.write(reinterpret_cast<const char *>(header),
              crypto_secretstream_xchacha20poly1305_HEADERBYTES);
@@ -197,7 +192,6 @@ int FS_Operator::WTFS_Handler__Server() {
                decrypted_file_chunk_len);
 
     if (prefix == END_CHUNK) {
-      std::cerr << "found last chunk\n";
       break;
     }
 
@@ -235,7 +229,6 @@ int FS_Operator::RFFS_Handler__Server() {
   std::ifstream file(file_name, std::ios::binary);
 
   if (!file) {
-    std::cerr << "couldn't open the file\n";
     return 1;
   }
 
@@ -262,19 +255,11 @@ int FS_Operator::RFFS_Handler__Server() {
 
   salt_wrap.send_all(this->client_sock);
 
-  if (!file) {
-    std::cerr << "file not valid\n";
-  } else if (file.eof()) {
-    std::cerr << "eof\n";
-  }
-
   do {
 
     file.read(reinterpret_cast<char *>(file_chunk), FILE_ENCRYPTED_CHUNK_SIZE);
 
     unsigned long long file_chunk_len = file.gcount();
-
-    std::cerr << "read file_chunk_len " << file_chunk_len << "\n";
 
     SessionEncWrapper prefix_wrap =
         file.eof() ? SessionEncWrapper(
@@ -366,10 +351,8 @@ int FS_Operator::receive_notice_of_new_action() {
   };
 
   if (notice != NEW_ACTION) {
-    std::cerr << "RETURNED ONE FROM NEWACTION NOOOOOOOOOOOOOO\n";
     return 1;
   } else {
-    std::cerr << "NEW ACTION INISIATED\n";
     return 0;
   }
 }

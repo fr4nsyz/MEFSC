@@ -2,9 +2,12 @@
 #include "../../include/common/SessionEnc.h"
 #include "../../include/common/constants.h"
 #include "../../include/common/encryption_utils.h"
+#include "../../include/tui_menu.h"
 #include <cassert>
+#include <functional>
 #include <iostream>
 #include <netinet/in.h>
+#include <sstream>
 #include <sodium/crypto_aead_chacha20poly1305.h>
 #include <sodium/crypto_box.h>
 #include <sodium/crypto_kx.h>
@@ -14,14 +17,6 @@
 #include <sys/socket.h>
 #include <termios.h>
 #include <unistd.h>
-
-// intentions
-const int ACK_SUC = 0;
-const int ACK_FAIL = -1;
-
-const int CONFUSION = -420;
-const int READ_FROM_FILESYSTEM = 1;
-const int WRITE_TO_FILESYSTEM = 2;
 
 void disable_echo() {
   termios oldt;
@@ -70,7 +65,7 @@ int send_credentials(
 
   SessionEncWrapper password_wrapper =
       SessionEncWrapper(reinterpret_cast<unsigned char *>(password.data()),
-                        password.length() + 1, client_tx, original_nonce);
+                        password.length(), client_tx, original_nonce);
 
   password_wrapper.send_all(client_sock);
 
@@ -200,6 +195,16 @@ int DFFS_Handler(Comms_Agent *CA, int client_sock) {
   return 0;
 }
 
+static std::string capture_call(std::function<void()> fn) {
+    std::stringstream ss;
+    auto old_cout = std::cout.rdbuf(ss.rdbuf());
+    auto old_cerr = std::cerr.rdbuf(ss.rdbuf());
+    fn();
+    std::cout.rdbuf(old_cout);
+    std::cerr.rdbuf(old_cerr);
+    return ss.str();
+}
+
 int authed_comms(
     int client_sock, unsigned char client_tx[crypto_kx_SESSIONKEYBYTES],
     unsigned char client_rx[crypto_kx_SESSIONKEYBYTES], std::string &username,
@@ -207,71 +212,99 @@ int authed_comms(
     unsigned char original_nonce[crypto_aead_chacha20poly1305_NPUBBYTES]) {
 
   Comms_Agent CA = Comms_Agent(client_tx, client_rx, client_sock);
-  /// loop from here to the end of the function depending on what the user
-  /// syas they want to do. aka if they wish to complete another action, don't
-  /// deconstruct the CA, save it for future. REMEMBER in creating CA you
-  /// destroyed the original keys. you have no way of communication without
-  /// them.
-
-  char perform_next = 'n';
+  std::vector<std::string> output_log;
 
   do {
+    Action action = show_menu(output_log);
+
+    if (action == Action::CONFUSION) break;
+
     if (CA.notify_server_of_action(NEW_ACTION, original_nonce)) {
-      std::cerr << "couldn't notify server of new user action\n";
+      output_log.emplace_back("couldn't notify server of new user action");
       break;
     };
 
-    std::cout << "enter your intention (1 == read || 2 == write || 3 == list files || 4 == delete file)" << std::endl;
+    send_intention(CA.get_client_tx(), client_sock, static_cast<int>(action),
+                   original_nonce);
 
-    int intention = CONFUSION;
-
-    get_stuff(intention);
-
-    // when we eventually make the program capable of handling multiple files
-    // concurrently, we will need to spawn threads that create their own SA or
-    // RA
     Sender_Agent SA = Sender_Agent(&CA, password);
     Receiver_Agent RA = Receiver_Agent(&CA);
 
-    if (intention == CONFUSION) {
-      return -1;
-    }
+    output_log.clear();
 
-    if (intention == READ_FROM_FILESYSTEM) {
-      send_intention(CA.get_client_tx(), client_sock, intention,
-                     original_nonce);
-      if (RFFS_Handler(&CA, RA, client_sock, password)) {
-        std::cerr << "failed reading from file system\n";
-      }
-    } else if (intention == WRITE_TO_FILESYSTEM) {
-      send_intention(CA.get_client_tx(), client_sock, intention,
-                     original_nonce);
-      if (WTFS_Handler(&CA, SA, client_sock, password)) {
-        std::cerr << "failed writing to file system\n";
-      };
-    } else if (intention == LIST_FILES) {
-      send_intention(CA.get_client_tx(), client_sock, intention,
-                     original_nonce);
-      if (LFFS_Handler(&CA, client_sock)) {
-        std::cerr << "failed listing files\n";
-      }
-    } else if (intention == DELETE_FILE) {
-      send_intention(CA.get_client_tx(), client_sock, intention,
-                     original_nonce);
-      if (DFFS_Handler(&CA, client_sock)) {
-        std::cerr << "failed deleting file\n";
-      }
-    } else {
-      std::cerr << "invalid intention\n";
-    }
+    switch (action) {
+    case Action::READ_FROM_FILESYSTEM:
+    case Action::WRITE_TO_FILESYSTEM:
+    case Action::DELETE_FILE: {
+      std::string prompt;
+      if (action == Action::READ_FROM_FILESYSTEM)
+        prompt = "enter file name to grab from server (ends in .enc): ";
+      else if (action == Action::WRITE_TO_FILESYSTEM)
+        prompt = "enter file name to send to server: ";
+      else
+        prompt = "enter file name to delete (ends in .enc): ";
 
-    std::cout << "perform another action? " << std::flush;
-    std::cin >> perform_next;
-  } while (perform_next == 'y' || perform_next == 'Y');
+      std::cout << prompt << std::flush;
+      std::string fn;
+      std::cin >> fn;
+      std::cout << "\n";
+
+      auto out = capture_call([&] {
+        if (action == Action::READ_FROM_FILESYSTEM) {
+          auto saved = std::cin.rdbuf();
+          std::istringstream fn_stream(fn + "\n");
+          std::cin.rdbuf(fn_stream.rdbuf());
+          if (RFFS_Handler(&CA, RA, client_sock, password))
+            std::cout << "failed reading from file system\n";
+          std::cin.rdbuf(saved);
+        } else if (action == Action::WRITE_TO_FILESYSTEM) {
+          auto saved = std::cin.rdbuf();
+          std::istringstream fn_stream(fn + "\n");
+          std::cin.rdbuf(fn_stream.rdbuf());
+          if (WTFS_Handler(&CA, SA, client_sock, password))
+            std::cout << "failed writing to file system\n";
+          std::cin.rdbuf(saved);
+        } else {
+          auto saved = std::cin.rdbuf();
+          std::istringstream fn_stream(fn + "\n");
+          std::cin.rdbuf(fn_stream.rdbuf());
+          if (DFFS_Handler(&CA, client_sock))
+            std::cout << "failed deleting file\n";
+          std::cin.rdbuf(saved);
+        }
+      });
+      std::istringstream(out) >> std::ws;
+      if (!out.empty()) {
+        std::string line;
+        std::istringstream lines(out);
+        while (std::getline(lines, line)) {
+          if (!line.empty()) output_log.push_back(line);
+        }
+      }
+      break;
+    }
+    case Action::LIST_FILES: {
+      auto out = capture_call([&] {
+        if (LFFS_Handler(&CA, client_sock))
+          std::cout << "failed listing files\n";
+      });
+      if (!out.empty()) {
+        std::string line;
+        std::istringstream lines(out);
+        while (std::getline(lines, line)) {
+          if (!line.empty()) output_log.push_back(line);
+        }
+      }
+      break;
+    }
+    default:
+      output_log.emplace_back("invalid intention");
+      break;
+    }
+  } while (true);
 
   CA.notify_server_of_action(NO_ACTION, original_nonce);
 
-  // already memzeroed the username during send_credentials
   sodium_memzero(password.data(), password.size());
   return 0;
 }

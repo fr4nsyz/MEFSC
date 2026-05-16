@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.14)
 
 project(MFSC LANGUAGES CXX)
 
@@ -12,6 +12,15 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 
 find_package(SQLite3 REQUIRED)
 find_package(Sodium REQUIRED)
+
+# --- FTXUI (TUI library for the client) ---
+include(FetchContent)
+FetchContent_Declare(ftxui
+  GIT_REPOSITORY https://github.com/ArthurSonzogni/FTXUI
+  GIT_TAG v6.1.9
+  GIT_SHALLOW TRUE
+)
+FetchContent_MakeAvailable(ftxui)
 
 add_library(common_lib STATIC
     src/encryption_utils/SessionEnc.cpp
@@ -43,6 +52,7 @@ target_link_libraries(server PRIVATE
 add_executable(client 
     src/client/client.cpp 
     src/client/authed_entry.cpp
+    src/client/tui_menu.cpp
 )
 
 set_target_properties(client PROPERTIES
@@ -53,4 +63,21 @@ target_include_directories(client PUBLIC include)
 
 target_link_libraries(client PRIVATE
     common_lib
+    ftxui::screen
+    ftxui::dom
+    ftxui::component
 )
+
+option(BUILD_TESTS "Build unit and integration tests" OFF)
+if(BUILD_TESTS)
+  include(FetchContent)
+  FetchContent_Declare(
+    googletest
+    URL https://github.com/google/googletest/archive/refs/tags/v1.15.2.tar.gz
+  )
+  set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+  FetchContent_MakeAvailable(googletest)
+
+  enable_testing()
+  add_subdirectory(tests)
+endif()

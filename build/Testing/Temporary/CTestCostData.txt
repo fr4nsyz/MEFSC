@@ -1,0 +1,7 @@
+test_common 5 0.00301074
+integ_upload 7 0.183884
+integ_download 5 0.001093
+integ_list 5 0.45222
+integ_delete 5 0.453436
+integ_bad_auth 5 0.249129
+---

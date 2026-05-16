@@ -3,6 +3,7 @@
 #include "../../include/authed_entry.h"
 #include "../../include/common/SessionEnc.h"
 #include <cstring>
+#include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <sodium/crypto_aead_chacha20poly1305.h> // for session encryption
@@ -123,8 +124,9 @@ int Sender_Agent::encrypt_and_send_to_server(std::string &file_name,
                   //  password to recreate this exact key which is what's needed
                   //  for decryption
 
-  if (init_send(file, reinterpret_cast<unsigned char *>(file_name.data()),
-                file_name.length(), header, this->salt)) {
+   std::string send_name = std::filesystem::path(file_name).filename().string();
+   if (init_send(file, reinterpret_cast<unsigned char *>(send_name.data()),
+                send_name.length(), header, this->salt)) {
     std::cerr << "error within init_send\n";
     return 1;
   } // no need to plus one here as on server side i
