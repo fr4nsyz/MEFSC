@@ -5,7 +5,13 @@
 #include <string>
 #include <vector>
 
-Action show_menu(std::vector<std::string> &output_log);
+struct MenuResult {
+    Action action;
+    std::string input;
+};
+
 Action show_numeric_menu();
+MenuResult show_menu(std::vector<std::string> &output_log,
+                     const std::vector<std::string> &file_list = {});
 
 #endif
