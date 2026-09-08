@@ -2,7 +2,9 @@
 // authenticated.
 #include "../../include/authed_entry.h"
 #include "../../include/common/SessionEnc.h"
+#include "../../include/common/TwoSlotBuffer.h"
 #include <cstring>
+#include <thread>
 #include <fstream>
 #include <iostream>
 #include <sodium/crypto_aead_chacha20poly1305.h> // for session encryption
@@ -276,8 +278,17 @@ int Receiver_Agent::decrypt_and_read_from_server(std::ofstream &file,
   int prefix = END_CHUNK;
 
   unsigned char file_chunk[FILE_ENCRYPTED_CHUNK_SIZE];
-  unsigned char decrypted_file_chunk[CHUNK_SIZE];
   unsigned char *rx = this->CA->get_client_rx();
+
+  TwoSlotBuffer slots(FILE_ENCRYPTED_CHUNK_SIZE);
+  std::thread writer([&file, &slots] {
+    size_t write_len;
+    unsigned char *buf;
+    while ((buf = slots.wait_ready(&write_len)) != nullptr) {
+      file.write(reinterpret_cast<char *>(buf), write_len);
+      slots.done_with();
+    }
+  });
 
   do {
 
@@ -293,24 +304,33 @@ int Receiver_Agent::decrypt_and_read_from_server(std::ofstream &file,
     if (recv_raw_blob(this->CA->get_socket(), file_chunk,
                       FILE_ENCRYPTED_CHUNK_SIZE, &file_chunk_len) != 0) {
       std::cerr << "error receiving raw file_chunk in pulling loop\n";
+      slots.finish();
+      writer.join();
       return 1;
     }
 
+    unsigned char *slot = slots.next_writable();
+
     if (crypto_secretstream_xchacha20poly1305_pull(
-            &state, decrypted_file_chunk, NULL, &tag, file_chunk,
-            file_chunk_len, NULL, 0) != 0) {
+            &state, slot, NULL, &tag, file_chunk, file_chunk_len, NULL, 0) !=
+        0) {
       std::cerr << "decryption failed in "
                    "crypto_secretstream_xchacha20poly1305_pull\n";
+      slots.finish();
+      writer.join();
       return 2;
     }
 
     std::cout << "SUCCESSFUL DECRYPTION IN FILE CHUNK OF SIZE: "
               << file_chunk_len << " \n";
 
-    file.write(reinterpret_cast<char *>(decrypted_file_chunk),
-               file_chunk_len - crypto_secretstream_xchacha20poly1305_ABYTES);
+    slots.publish(file_chunk_len -
+                  crypto_secretstream_xchacha20poly1305_ABYTES);
 
   } while (prefix != END_CHUNK);
+
+  slots.finish();
+  writer.join();
 
   return 0;
 }

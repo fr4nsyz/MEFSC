@@ -73,3 +73,7 @@ make
 `build/client_fs/client` is the client binary.
 
 Execute them and follow the prompts :) it's that straight forward.
+
+## Benchmarking
+
+`bench-1g/` contains a 1 Gbps LAN throughput benchmark (macOS, simulated with dummynet/pf) plus the measured results: raw link at line rate (~992 Mbps) vs. the app at ~333 Mbps over the shaped link / ~425-458 Mbps over loopback after the I/O-pipelining optimization. See [`bench-1g/README.md`](bench-1g/README.md) for the full methodology, numbers, and how to rerun it.

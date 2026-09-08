@@ -1,10 +1,12 @@
 #include "../../include/read_write_handlers.h"
+#include "../../include/common/TwoSlotBuffer.h"
 #include <cstddef>
 #include <cstdio>
 #include <cstring>
 #include <filesystem>
 #include <sodium/crypto_secretstream_xchacha20poly1305.h>
 #include <sodium/utils.h>
+#include <thread>
 
 const char *ext = ".enc";
 const unsigned char ext_len = strlen(ext);
@@ -157,8 +159,15 @@ int FS_Operator::WTFS_Handler__Server() {
              crypto_secretstream_xchacha20poly1305_HEADERBYTES);
   file.write(reinterpret_cast<const char *>(salt), crypto_pwhash_SALTBYTES);
 
-  unsigned char decrypted_file_chunk[FILE_ENCRYPTED_CHUNK_SIZE];
-  size_t read_bytes;
+  TwoSlotBuffer slots(FILE_ENCRYPTED_CHUNK_SIZE);
+  std::thread writer([&file, &slots] {
+    size_t write_len;
+    unsigned char *buf;
+    while ((buf = slots.wait_ready(&write_len)) != nullptr) {
+      file.write(reinterpret_cast<char *>(buf), write_len);
+      slots.done_with();
+    }
+  });
 
   int prefix = END_CHUNK;
   do {
@@ -177,15 +186,17 @@ int FS_Operator::WTFS_Handler__Server() {
       break;
     };
 
+    unsigned char *slot = slots.next_writable();
     size_t decrypted_file_chunk_len = 0;
-    if (recv_raw_blob(client_sock, decrypted_file_chunk,
-                      FILE_ENCRYPTED_CHUNK_SIZE, &decrypted_file_chunk_len)) {
+    if (recv_raw_blob(client_sock, slot, FILE_ENCRYPTED_CHUNK_SIZE,
+                      &decrypted_file_chunk_len)) {
       std::cerr << "failed to receive raw encrypted file chunk\n";
-      break;
+      slots.finish();
+      writer.join();
+      return 1;
     }
 
-    file.write(reinterpret_cast<char *>(decrypted_file_chunk),
-               decrypted_file_chunk_len);
+    slots.publish(decrypted_file_chunk_len);
 
     if (prefix == END_CHUNK) {
       std::cerr << "found last chunk\n";
@@ -195,6 +206,9 @@ int FS_Operator::WTFS_Handler__Server() {
   } while (prefix ==
            MEAT_CHUNK); // changing this to MEAT_CHUNK not != END_CHUNK
                         // explicitness or whatever the word is
+
+  slots.finish();
+  writer.join();
 
   return 0;
 }

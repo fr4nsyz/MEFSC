@@ -1,3 +1,9 @@
 build/CMakeCache.txt
 build/CMakeFiles/*
 build/Makefile
+
+# benchmark test payload + generated ciphertext, logs, stray DB copies
+/test_100MB.bin
+build/MEF_S/
+bench-1g/*.log
+bench-1g/MEFSC_DB.db

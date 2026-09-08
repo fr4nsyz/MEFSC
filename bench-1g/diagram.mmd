@@ -1,0 +1,22 @@
+flowchart LR
+    subgraph HOST["macOS host"]
+        direction LR
+        C["client<br/>build/client_fs/client<br/>source-binds 10.0.0.1"]
+        BR["bridge1<br/>aliases 10.0.0.1 / 10.0.0.2"]
+        PF["pf<br/>anchor 'dummynet'"]
+        P1["dummynet pipe 1<br/>1000 Mbit/s, queue 100"]
+        S["server<br/>build/server<br/>listens 0.0.0.0:8080"]
+
+        C -- "10.0.0.1:* -> 10.0.0.2:8080" --> BR
+        BR -- "in quick from 10.0.0.1 to 10.0.0.2 -> pipe 1" --> PF
+        PF --> P1
+        P1 -- "shaped uplink" --> S
+        S -- "shaped downlink" --> P1
+        P1 -- "in quick from 10.0.0.2 to 10.0.0.1 -> pipe 1" --> PF
+        PF --> BR
+        BR --> C
+    end
+
+    style C fill:#e8f0fe
+    style S fill:#e8f0fe
+    style P1 fill:#fde9d9

@@ -2,6 +2,7 @@
 #include "../../include/common/SessionEnc.h"
 #include "../../include/common/constants.h"
 #include "../../include/common/encryption_utils.h"
+#include <arpa/inet.h>
 #include <cassert>
 #include <iostream>
 #include <netinet/in.h>
@@ -276,13 +277,38 @@ int authed_comms(
   return 0;
 }
 
-int main() {
+int main(int argc, char *argv[]) {
+
+  std::string server_ip = "127.0.0.1";
+  if (argc >= 2) {
+    server_ip = argv[1];
+  }
 
   int client_sock = socket(AF_INET, SOCK_STREAM, 0);
   sockaddr_in server_address;
   server_address.sin_family = AF_INET;
   server_address.sin_port = htons(8080);
-  server_address.sin_addr.s_addr = INADDR_ANY;
+
+  if (inet_pton(AF_INET, server_ip.c_str(), &server_address.sin_addr) <= 0) {
+    std::cerr << "invalid server IP: " << server_ip << std::endl;
+    return 1;
+  }
+
+  // optional second arg: source address to bind, so local-host traffic takes
+  // a deterministic src/dst pair (matters for pf/dummynet rules on benchmark)
+  if (argc >= 3) {
+    sockaddr_in bind_addr;
+    bind_addr.sin_family = AF_INET;
+    bind_addr.sin_port = 0;
+    if (inet_pton(AF_INET, argv[2], &bind_addr.sin_addr) <= 0) {
+      std::cerr << "invalid bind IP: " << argv[2] << std::endl;
+      return 1;
+    }
+    if (bind(client_sock, (struct sockaddr *)&bind_addr, sizeof(bind_addr)) < 0) {
+      std::cerr << "bind failed: " << strerror(errno) << std::endl;
+      return 1;
+    }
+  }
 
   int conn_stat = connect(client_sock, (struct sockaddr *)&server_address,
                           sizeof(server_address));
